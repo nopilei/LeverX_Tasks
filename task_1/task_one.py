@@ -123,9 +123,6 @@ class Task:
     }
     AVAILABLE_EXTENSIONS = list(AVAILABLE_EXTENSIONS_AND_EXPORT_TOOLS.keys())
 
-    def __init__(self, export: ExportTool):
-        self.export = export
-
     @classmethod
     def solve_task(cls):
         """
