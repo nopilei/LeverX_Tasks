@@ -16,7 +16,7 @@ class Version:
     _MainComponents = namedtuple('Triple', ['major', 'minor', 'patch', 'prerelease'])
 
     def __init__(self, version: str):
-        if re.fullmatch(self._REGEX, version) is None:
+        if not re.fullmatch(self._REGEX, version):
             raise ValueError('Version string does not match the pattern.')
 
         if '+' in version:
