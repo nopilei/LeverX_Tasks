@@ -53,29 +53,6 @@ class ExportTool:
         raise NotImplementedError
 
 
-class CLI:
-    """
-    CLI util for working with 'rooms' 'students' and 'format' parameters
-    """
-    AVAILABLE_EXTENSIONS = ['json', 'xml']
-
-    @classmethod
-    def get_args(cls) -> argparse.Namespace:
-        """
-        Get CLI arguments
-        """
-        parser = argparse.ArgumentParser(
-            description='Given paths to input json files, fetches data from these files, '
-                        'processes it and outputs new info in either xml or json file')
-        parser.add_argument('rooms', help='Path to rooms.json')
-        parser.add_argument('students', help='Path to students.json')
-        parser.add_argument('--format',
-                            help='Format of output file (extension). Defaults to json',
-                            choices=cls.AVAILABLE_EXTENSIONS, default='json')
-        args = parser.parse_args()
-        return args
-
-
 # =====================================
 # IMPLEMENTATIONS
 # =====================================
@@ -160,6 +137,29 @@ class FirstTaskXMLExportTool(ExportTool):
 # =====================================
 # First task execution
 # =====================================
+
+
+class CLI:
+    """
+    CLI util for working with 'rooms' 'students' and 'format' parameters
+    """
+    AVAILABLE_EXTENSIONS = ['json', 'xml']
+
+    @classmethod
+    def get_args(cls) -> argparse.Namespace:
+        """
+        Get CLI arguments
+        """
+        parser = argparse.ArgumentParser(
+            description='Given paths to input json files, fetches data from these files, '
+                        'processes it and outputs new info in either xml or json file')
+        parser.add_argument('rooms', help='Path to rooms.json')
+        parser.add_argument('students', help='Path to students.json')
+        parser.add_argument('--format',
+                            help='Format of output file (extension). Defaults to json',
+                            choices=cls.AVAILABLE_EXTENSIONS, default='json')
+        args = parser.parse_args()
+        return args
 
 
 class FirstTask:
