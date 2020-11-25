@@ -13,7 +13,7 @@ class Version:
                         '(?:\+(?P<buildmetadata>[0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$')
 
     # Container for storing necessary info from version string
-    _MainComponents = namedtuple('Triple', ['major', 'minor', 'patch', 'prerelease'])
+    _MainComponents = namedtuple('MainComponents', ['major', 'minor', 'patch', 'prerelease'])
 
     def __init__(self, version: str):
         if not re.fullmatch(self._REGEX, version):
