@@ -1,25 +1,24 @@
-from threading import Thread, Lock
+from threading import Lock
+from concurrent.futures import ThreadPoolExecutor
 
-a = 0
+
+class SharedResource:
+    def __init__(self, value=0):
+        self.value = value
 
 
-def function(arg, lock):
-    global a
+def function(arg: int, lock: Lock, resource: SharedResource):
     with lock:
-        for _ in range(arg):
-            a += 1
+        resource.value += arg
 
 
 def main():
-    threads = []
     lock = Lock()
-    for i in range(5):
-        thread = Thread(target=function, args=(1000000, lock))
-        thread.start()
-        threads.append(thread)
-
-    [t.join() for t in threads]
-    print("----------------------", a)  # ???
+    shared_resource = SharedResource()
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        for _ in range(5):
+            executor.submit(function, 1000000, lock, shared_resource)
+    print("----------------------", shared_resource.value)
 
 
 main()
