@@ -3,27 +3,38 @@ import xml.etree.ElementTree as ET
 import argparse
 from typing import Any, List
 
+# =====================================
+# INTERFACES
+# =====================================
 
-class ExportPreparationTool:
+
+class ImportTool:
     """
-    Before exporting any data, you have to get initial data and then process it if needed.
-    This class defines interface for such tools
+    Interface for tools that import data
     """
-    def import_data(self) -> None:
+    def import_data(self) -> Any:
         """
         Import data from any source or sources
         """
         raise NotImplementedError
 
-    def prepare_data(self) -> Any:
+
+class ExportPreparationTool:
+    """
+    Before exporting any data, you have to probably transform it.
+    This class defines interface for such tools
+    """
+    def __init__(self, import_tool: ImportTool):
+        """
+        Set import tool as an instance attribute (as you need to first import data before preparation)
+        """
+        self.import_tool = import_tool
+
+    def get_prepared_data(self) -> Any:
         """
         Implements data processing logic (which is defined by particular task requirements) for future exporting
         """
         raise NotImplementedError
-
-    def import_and_prepare(self) -> Any:
-        self.import_data()
-        return self.prepare_data()
 
 
 class ExportTool:
@@ -42,9 +53,37 @@ class ExportTool:
         raise NotImplementedError
 
 
-class TaskExportPreparationTool(ExportPreparationTool):
+class CLI:
     """
-    Export preparation tool for this task
+    CLI util for working with 'rooms' 'students' and 'format' parameters
+    """
+    AVAILABLE_EXTENSIONS = ['json', 'xml']
+
+    @classmethod
+    def get_args(cls) -> argparse.Namespace:
+        """
+        Get CLI arguments
+        """
+        parser = argparse.ArgumentParser(
+            description='Given paths to input json files, fetches data from these files, '
+                        'processes it and outputs new info in either xml or json file')
+        parser.add_argument('rooms', help='Path to rooms.json')
+        parser.add_argument('students', help='Path to students.json')
+        parser.add_argument('--format',
+                            help='Format of output file (extension). Defaults to json',
+                            choices=cls.AVAILABLE_EXTENSIONS, default='json')
+        args = parser.parse_args()
+        return args
+
+
+# =====================================
+# IMPLEMENTATIONS
+# =====================================
+
+
+class FirstTaskImportTool(ImportTool):
+    """
+    Import tool for the first task
     """
     def __init__(self, students_path: str, rooms_path: str):
         self.students_path = students_path
@@ -53,38 +92,44 @@ class TaskExportPreparationTool(ExportPreparationTool):
 
     def import_data(self) -> None:
         """
-        Loads students.json and rooms.json files
+        Loads 'student.json' and 'rooms.json'
         """
         with open(self.students_path) as s_file, open(self.rooms_path) as r_file:
             self.students = json.load(s_file)
             self.rooms = json.load(r_file)
 
-    def prepare_data(self) -> List[dict]:
+
+class FirstTaskExportPreparationTool(ExportPreparationTool):
+    """
+    Export preparation tool for the first task
+    """
+    def get_prepared_data(self) -> List[dict]:
         """
         Data processing logic
         """
+        self.import_tool.import_data()
         output_data = {}
-        for room in self.rooms:
+        for room in self.import_tool.rooms:
             output_data[room['id']] = room.copy()
             output_data[room['id']]['students'] = []
 
-        for student in self.students:
+        for student in self.import_tool.students:
             output_data[student['room']]['students'].append(student.copy())
 
         return list(output_data.values())
 
 
-class TaskJSONExportTool(ExportTool):
+class FirstTaskJSONExportTool(ExportTool):
     """
     Exports data to json file
     """
     def export_data(self) -> None:
-        prepared_data = self.export_preparation_tool.import_and_prepare()
+        prepared_data = self.export_preparation_tool.get_prepared_data()
         with open(f'{self.output}.json', 'w') as file:
             json.dump(prepared_data, file)
 
 
-class TaskXMLExportTool(ExportTool):
+class FirstTaskXMLExportTool(ExportTool):
     """
     Exports data to xml file
     """
@@ -92,7 +137,7 @@ class TaskXMLExportTool(ExportTool):
         """
         Since the prepared data format is not compatible with xml files, we need to make some steps to reformat it
         """
-        prepared_data = self.export_preparation_tool.import_and_prepare()
+        prepared_data = self.export_preparation_tool.get_prepared_data()
         root = ET.Element('rooms')
         for room in prepared_data:
             room_element = ET.SubElement(root, 'room')
@@ -112,45 +157,38 @@ class TaskXMLExportTool(ExportTool):
 
         ET.ElementTree(root).write(f'{self.output}.xml')
 
+# =====================================
+# First task execution
+# =====================================
 
-class Task:
+
+class FirstTask:
     """
-    Task execution
+    First task execution
     """
     AVAILABLE_EXTENSIONS_AND_EXPORT_TOOLS = {
-        'json': TaskJSONExportTool,
-        'xml': TaskXMLExportTool
+        'json': FirstTaskJSONExportTool,
+        'xml': FirstTaskXMLExportTool
     }
-    AVAILABLE_EXTENSIONS = list(AVAILABLE_EXTENSIONS_AND_EXPORT_TOOLS.keys())
+    OUTPUT_FILE_NAME = 'rooms_and_students'
 
     @classmethod
-    def solve_task(cls):
+    def execute_first_task(cls):
         """
         Start task execution
         """
+        args = CLI.get_args()
+        import_tool = FirstTaskImportTool(args.students, args.rooms)
+        export_preparation_tool = FirstTaskExportPreparationTool(import_tool)
+        export_tool_class = cls.AVAILABLE_EXTENSIONS_AND_EXPORT_TOOLS[args.format]
+        export_tool = export_tool_class(cls.OUTPUT_FILE_NAME, export_preparation_tool)
         try:
-            parser = argparse.ArgumentParser(
-                description='Given paths to input json files, fetches data from these files, '
-                'processes it and outputs new info in either xml or json file')
-            parser.add_argument('rooms', help='Path to rooms.json')
-            parser.add_argument('students', help='Path to students.json')
-            parser.add_argument('--format',
-                                help='Format of output file (extension). Defaults to json',
-                                choices=cls.AVAILABLE_EXTENSIONS, default='json')
-            parser.add_argument('--output',
-                                help='Full name of output file without extension. Defaults to "rooms_and_students"',
-                                default='rooms_and_students')
-            args = parser.parse_args()
-
-            export_tool_class = cls.AVAILABLE_EXTENSIONS_AND_EXPORT_TOOLS[args.format]
-            export_tool = export_tool_class(args.output, TaskExportPreparationTool(args.students, args.rooms))
             export_tool.export_data()
-
         except (FileNotFoundError, PermissionError):
-            print('Could not execute the task! Try to change input arguments.')
+            print('Could not execute the task! Try to change input parameters.')
 
 
 if __name__ == '__main__':
-    Task.solve_task()
+    FirstTask.execute_first_task()
 
 
