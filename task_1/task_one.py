@@ -96,25 +96,22 @@ class FirstTaskExportPreparationTool(ExportPreparationTool):
         return list(output_data.values())
 
 
-class FirstTaskJSONExportTool(ExportTool):
+class FirstTaskJSONExportPreparationTool(FirstTaskExportPreparationTool):
     """
-    Exports data to json file
+    Export json preparation tool for the first task
     """
-    def export_data(self) -> None:
-        prepared_data = self.export_preparation_tool.get_prepared_data()
-        with open(f'{self.output}.json', 'w') as file:
-            json.dump(prepared_data, file)
+    pass
 
 
-class FirstTaskXMLExportTool(ExportTool):
+class FirstTaskXMLExportPreparationTool(FirstTaskExportPreparationTool):
     """
-    Exports data to xml file
+    Export xml preparation tool for the first task
     """
-    def export_data(self) -> None:
+    def get_prepared_data(self) -> ET.Element:
         """
         Since the prepared data format is not compatible with xml files, we need to make some steps to reformat it
         """
-        prepared_data = self.export_preparation_tool.get_prepared_data()
+        prepared_data = super().get_prepared_data()
         root = ET.Element('rooms')
         for room in prepared_data:
             room_element = ET.SubElement(root, 'room')
@@ -131,7 +128,25 @@ class FirstTaskXMLExportTool(ExportTool):
                 for key, value in student.items():
                     student_property = ET.SubElement(room_student_element, key)
                     student_property.text = str(value)
+        return root
 
+
+class FirstTaskJSONExportTool(ExportTool):
+    """
+    Exports data to json file
+    """
+    def export_data(self) -> None:
+        prepared_data = self.export_preparation_tool.get_prepared_data()
+        with open(f'{self.output}.json', 'w') as file:
+            json.dump(prepared_data, file)
+
+
+class FirstTaskXMLExportTool(ExportTool):
+    """
+    Exports data to xml file
+    """
+    def export_data(self) -> None:
+        root = self.export_preparation_tool.get_prepared_data()
         ET.ElementTree(root).write(f'{self.output}.xml')
 
 # =====================================
@@ -141,7 +156,7 @@ class FirstTaskXMLExportTool(ExportTool):
 
 class CLI:
     """
-    CLI util for working with 'rooms' 'students' and 'format' parameters
+    CLI util for working with 'rooms', 'students' and 'format' parameters
     """
     AVAILABLE_EXTENSIONS = ['json', 'xml']
 
@@ -167,8 +182,8 @@ class FirstTask:
     First task execution
     """
     AVAILABLE_EXTENSIONS_AND_EXPORT_TOOLS = {
-        'json': FirstTaskJSONExportTool,
-        'xml': FirstTaskXMLExportTool
+        'json': (FirstTaskJSONExportTool, FirstTaskJSONExportPreparationTool),
+        'xml': (FirstTaskXMLExportTool, FirstTaskXMLExportPreparationTool)
     }
     OUTPUT_FILE_NAME = 'rooms_and_students'
 
@@ -179,9 +194,8 @@ class FirstTask:
         """
         args = CLI.get_args()
         import_tool = FirstTaskImportTool(args.students, args.rooms)
-        export_preparation_tool = FirstTaskExportPreparationTool(import_tool)
-        export_tool_class = cls.AVAILABLE_EXTENSIONS_AND_EXPORT_TOOLS[args.format]
-        export_tool = export_tool_class(cls.OUTPUT_FILE_NAME, export_preparation_tool)
+        export_tool_class, export_preparation_tool_class = cls.AVAILABLE_EXTENSIONS_AND_EXPORT_TOOLS[args.format]
+        export_tool = export_tool_class(cls.OUTPUT_FILE_NAME, export_preparation_tool_class(import_tool))
         try:
             export_tool.export_data()
         except (FileNotFoundError, PermissionError):
