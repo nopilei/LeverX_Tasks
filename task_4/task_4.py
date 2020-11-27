@@ -59,9 +59,9 @@ class FourthTaskXMLExportPreparationTool(FourthTaskExportFilePreparationTool):
         return root
 
 
-class FourthTaskExportMysqlTool(tools_from_task_1.ExportTool):
+class FourthTaskSetupMysqlTool(tools_from_task_1.ExportTool):
     """
-    Exports data to Mysql database
+    Sets up Mysql database
     """
     def __init__(self, setup_tables: str, fill_tables: str, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -85,9 +85,9 @@ class FourthTaskExportMysqlTool(tools_from_task_1.ExportTool):
             self.output.commit()
 
 
-class FourthTaskImportMysqlTool(tools_from_task_1.ImportTool):
+class FourthTaskStatsFetchMysqlTool(tools_from_task_1.ImportTool):
     """
-    Imports data from Mysql database
+    Fetches some statistics from Mysql database
     """
     def __init__(self, fetch_db_data: str, connection: pymysql.Connection):
         self.connection = connection
@@ -122,12 +122,12 @@ class FourthTask:
             cursorclass=pymysql.cursors.DictCursor,
         )
     except pymysql.err.OperationalError:
-        exit('Connection to database failed! Change parameters for MYSQL_CONNECTION')
+        exit('Connection to database failed! Set proper parameters for MYSQL_CONNECTION')
 
     #  Paths to files with SQL queries
-    SETUP_TABLES_QUERIES = "setup_tables.txt"
-    FILL_TABLES_QUERIES = "fill_tables.txt"
-    FETCH_DB_QUERIES = "fetch_db_data.txt"
+    SETUP_TABLES_QUERIES = "setup_tables.sql"
+    FILL_TABLES_QUERIES = "fill_tables.sql"
+    FETCH_DB_QUERIES = "fetch_db_data.sql"
 
     @classmethod
     def execute_fourth_task(cls):
@@ -136,18 +136,21 @@ class FourthTask:
         """
         args = tools_from_task_1.CLI.get_args()
 
-        import_files_tool = tools_from_task_1.FirstTaskImportTool(args.students, args.rooms)
-        export_db_preparation_tool = FourthTaskExportMysqlPreparationTool(import_files_tool)
-        export_db_tool = FourthTaskExportMysqlTool(cls.SETUP_TABLES_QUERIES, cls.FILL_TABLES_QUERIES,
-                                                   cls.MYSQL_CONNECTION, export_db_preparation_tool)
+        #  Setting up database
+        import_from_files_tool = tools_from_task_1.FirstTaskImportTool(args.students, args.rooms)
+        setup_db_preparation_tool = FourthTaskExportMysqlPreparationTool(import_from_files_tool)
+        setup_db_tool = FourthTaskSetupMysqlTool(cls.SETUP_TABLES_QUERIES, cls.FILL_TABLES_QUERIES,
+                                                 cls.MYSQL_CONNECTION, setup_db_preparation_tool)
 
-        import_db_tool = FourthTaskImportMysqlTool(cls.FETCH_DB_QUERIES, cls.MYSQL_CONNECTION)
+        #  Exporting statistics to either json or xml file
+        fetch_stats_from_db_tool = FourthTaskStatsFetchMysqlTool(cls.FETCH_DB_QUERIES, cls.MYSQL_CONNECTION)
         export_preparation_tool_class, export_tool_class = cls.AVAILABLE_EXTENSIONS_AND_EXPORT_TOOLS[args.format]
-        export_stats_tool = export_tool_class(cls.OUTPUT_FILE_NAME, export_preparation_tool_class(import_db_tool))
+        export_stats_to_file_tool = export_tool_class(cls.OUTPUT_FILE_NAME,
+                                                      export_preparation_tool_class(fetch_stats_from_db_tool))
 
         try:
-            export_db_tool.export_data()
-            export_stats_tool.export_data()
+            setup_db_tool.export_data()
+            export_stats_to_file_tool.export_data()
         except (FileNotFoundError, PermissionError):
             print('Could not execute the task! Try to change input parameters.')
 

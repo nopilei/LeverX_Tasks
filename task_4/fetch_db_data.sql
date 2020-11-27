@@ -17,10 +17,9 @@ SELECT r.id, r.name
  ORDER BY STD(s.birthday) ASC
  LIMIT 5;
 
-SELECT id, name
- FROM (
- SELECT DISTINCT r.id, r.name, s.sex
+SELECT r.id, r.name
  FROM student AS s
- INNER JOIN room AS r ON s.room_id=r.id) t
+ INNER JOIN room as r
+ ON s.room_id=r.id
  GROUP BY id
- HAVING LENGTH(GROUP_CONCAT(sex SEPARATOR ''))=2;
+ HAVING COUNT(DISTINCT sex)=2;
