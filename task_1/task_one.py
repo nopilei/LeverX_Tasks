@@ -10,7 +10,7 @@ from typing import Any, List
 
 class ImportTool:
     """
-    Interface for tools that import data and collects it too 'imported_data' dict
+    Interface for tools that import data and collects it to 'imported_data' dict
     """
     def __init__(self):
         self.imported_data = {}
