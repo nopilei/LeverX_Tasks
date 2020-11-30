@@ -159,10 +159,10 @@ class FourthTask:
         #  Take a look at 'statistics.sql'. There are all SQL queries, required by task, and their names,
         #  separated by '#'.
 
-        #  To see all names of queries, use
+        #  To see all names of queries, do
         pprint(list(fetch_stats_from_db_tool.imported_data.keys()))
         print()
-        #  To see result of a particular query, use
+        #  To see result of a particular query, do
         query_name = 'top 5 комнат, где самые маленький средний возраст студентов'
         pprint(fetch_stats_from_db_tool.imported_data[query_name])
 
