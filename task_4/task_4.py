@@ -3,18 +3,19 @@ import pymysql
 import xml.etree.ElementTree as ET
 from sys import exit
 from typing import Dict, List, Tuple
+from pprint import pprint
 
 
-class FourthTaskExportFilePreparationTool(tools_from_task_1.ExportPreparationTool):
+class FilePrepareDataTool(tools_from_task_1.ExportPreparationTool):
     """
     Export preparation tool for exporting data to file
     """
     def get_prepared_data(self) -> Dict[str, List[dict]]:
         self.import_tool.import_data()
-        return self.import_tool.stats
+        return self.import_tool.results
 
 
-class FourthTaskExportMysqlPreparationTool(tools_from_task_1.FirstTaskJSONExportPreparationTool):
+class MysqlPrepareDataTool(tools_from_task_1.JSONPreparationTool):
     """
     Export preparation tool for exporting initial data to Mysql database
     """
@@ -35,20 +36,20 @@ class FourthTaskExportMysqlPreparationTool(tools_from_task_1.FirstTaskJSONExport
         return rooms, students
 
 
-class FourthTaskJSONExportPreparationTool(FourthTaskExportFilePreparationTool):
+class JSONPrepareDataTool(FilePrepareDataTool):
     """
     Export preparation tool for exporting data to json file
     """
     pass
 
 
-class FourthTaskXMLExportPreparationTool(FourthTaskExportFilePreparationTool):
+class XMLPrepareDataTool(FilePrepareDataTool):
     """
     Export preparation tool for exporting data to xml file
     """
     def get_prepared_data(self) -> ET.Element:
         prepared_data = super().get_prepared_data()
-        root = ET.Element('stats')
+        root = ET.Element('results')
         for stat_name, rooms in prepared_data.items():
             stat_element = ET.SubElement(root, stat_name)
             for room in rooms:
@@ -59,7 +60,7 @@ class FourthTaskXMLExportPreparationTool(FourthTaskExportFilePreparationTool):
         return root
 
 
-class FourthTaskSetupMysqlTool(tools_from_task_1.ExportTool):
+class MysqlSetupTablesTool(tools_from_task_1.ExportTool):
     """
     Sets up Mysql database
     """
@@ -79,40 +80,38 @@ class FourthTaskSetupMysqlTool(tools_from_task_1.ExportTool):
             with open(self.fill_tables) as file:
                 queries = map(lambda s: s.replace('\n', ''), file.read().split('\n\n'))
                 for query, data in zip(queries, (rooms, students)):
-                    # print(data)
                     cursor.executemany(query, data)
 
             self.output.commit()
 
 
-class FourthTaskStatsFetchMysqlTool(tools_from_task_1.ImportTool):
+class MysqlGetStatisticsTool(tools_from_task_1.ImportTool):
     """
-    Fetches some statistics from Mysql database
+    Executes queries defined in .sql files and collects results to .results attribute
     """
-    def __init__(self, fetch_db_data: str, connection: pymysql.Connection):
+    def __init__(self, path_to_sql_queries: str, connection: pymysql.Connection):
         self.connection = connection
-        self.fetch_db_data = fetch_db_data
-        self.stats = {}
+        self.path_to_sql_queries = path_to_sql_queries
+        self.results = {}
 
     def import_data(self):
-        with self.connection.cursor() as cursor, open(self.fetch_db_data) as file:
+        with self.connection.cursor() as cursor, open(self.path_to_sql_queries) as file:
             queries = map(lambda s: s.replace('\n', ''), file.read().split('\n\n'))
             for num_of_query, query in enumerate(queries, start=1):
                 cursor.execute(query)
-                stat_name = f'stat_{str(num_of_query)}'
-                self.stats[stat_name] = cursor.fetchall()
+                self.results[query] = cursor.fetchall()
 
 
 class FourthTask:
     AVAILABLE_EXTENSIONS_AND_EXPORT_TOOLS = {
-        'json': (FourthTaskJSONExportPreparationTool, tools_from_task_1.FirstTaskJSONExportTool),
-        'xml': (FourthTaskXMLExportPreparationTool, tools_from_task_1.FirstTaskXMLExportTool)
+        'json': (JSONPrepareDataTool, tools_from_task_1.JSONExportTool),
+        'xml': (XMLPrepareDataTool, tools_from_task_1.XMLExportTool)
     }
 
     OUTPUT_FILE_NAME = 'rooms_and_students'
 
     try:
-        #  Connection to database
+        #  Connect to Mysql database
         MYSQL_CONNECTION = pymysql.connect(
             host='localhost',
             user='task_4_user',
@@ -127,7 +126,7 @@ class FourthTask:
     #  Paths to files with SQL queries
     SETUP_TABLES_QUERIES = "setup_tables.sql"
     FILL_TABLES_QUERIES = "fill_tables.sql"
-    FETCH_DB_QUERIES = "fetch_db_data.sql"
+    FETCH_DB_QUERIES = "path_to_sql_queries.sql"
 
     @classmethod
     def execute_fourth_task(cls):
@@ -137,13 +136,13 @@ class FourthTask:
         args = tools_from_task_1.CLI.get_args()
 
         #  Setting up database
-        import_from_files_tool = tools_from_task_1.FirstTaskImportTool(args.students, args.rooms)
-        setup_db_preparation_tool = FourthTaskExportMysqlPreparationTool(import_from_files_tool)
-        setup_db_tool = FourthTaskSetupMysqlTool(cls.SETUP_TABLES_QUERIES, cls.FILL_TABLES_QUERIES,
-                                                 cls.MYSQL_CONNECTION, setup_db_preparation_tool)
+        import_initial_data_tool = tools_from_task_1.StudentsRoomsImportTool(args.students, args.rooms)
+        setup_db_preparation_tool = MysqlPrepareDataTool(import_initial_data_tool)
+        setup_db_tool = MysqlSetupTablesTool(cls.SETUP_TABLES_QUERIES, cls.FILL_TABLES_QUERIES,
+                                             cls.MYSQL_CONNECTION, setup_db_preparation_tool)
 
         #  Exporting statistics to either json or xml file
-        fetch_stats_from_db_tool = FourthTaskStatsFetchMysqlTool(cls.FETCH_DB_QUERIES, cls.MYSQL_CONNECTION)
+        fetch_stats_from_db_tool = MysqlGetStatisticsTool(cls.FETCH_DB_QUERIES, cls.MYSQL_CONNECTION)
         export_preparation_tool_class, export_tool_class = cls.AVAILABLE_EXTENSIONS_AND_EXPORT_TOOLS[args.format]
         export_stats_to_file_tool = export_tool_class(cls.OUTPUT_FILE_NAME,
                                                       export_preparation_tool_class(fetch_stats_from_db_tool))
@@ -152,7 +151,7 @@ class FourthTask:
             setup_db_tool.export_data()
             export_stats_to_file_tool.export_data()
         except (FileNotFoundError, PermissionError):
-            print('Could not execute the task! Try to change input parameters.')
+            print('Could not export to file! Try to change input parameters.')
 
 
 if __name__ == '__main__':

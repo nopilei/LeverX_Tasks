@@ -10,8 +10,11 @@ from typing import Any, List
 
 class ImportTool:
     """
-    Interface for tools that import data
+    Interface for tools that import data and collects it too 'imported_data' dict
     """
+    def __init__(self, *args, **kwargs):
+        self.imported_data = {}
+
     def import_data(self) -> Any:
         """
         Import data from any source or sources
@@ -58,25 +61,25 @@ class ExportTool:
 # =====================================
 
 
-class FirstTaskImportTool(ImportTool):
+class StudentsRoomsImportTool(ImportTool):
     """
     Import tool for the first task
     """
-    def __init__(self, students_path: str, rooms_path: str):
+    def __init__(self, students_path: str, rooms_path: str, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.students_path = students_path
         self.rooms_path = rooms_path
-        self.students, self.rooms = [], []
 
     def import_data(self) -> None:
         """
         Loads 'student.json' and 'rooms.json'
         """
         with open(self.students_path) as s_file, open(self.rooms_path) as r_file:
-            self.students = json.load(s_file)
-            self.rooms = json.load(r_file)
+            self.imported_data['students'] = json.load(s_file)
+            self.imported_data['rooms'] = json.load(r_file)
 
 
-class FirstTaskExportPreparationTool(ExportPreparationTool):
+class FilePreparationTool(ExportPreparationTool):
     """
     Export preparation tool for the first task
     """
@@ -86,24 +89,24 @@ class FirstTaskExportPreparationTool(ExportPreparationTool):
         """
         self.import_tool.import_data()
         output_data = {}
-        for room in self.import_tool.rooms:
+        for room in self.import_tool['rooms']:
             output_data[room['id']] = room.copy()
             output_data[room['id']]['students'] = []
 
-        for student in self.import_tool.students:
+        for student in self.import_tool['students']:
             output_data[student['room']]['students'].append(student.copy())
 
         return list(output_data.values())
 
 
-class FirstTaskJSONExportPreparationTool(FirstTaskExportPreparationTool):
+class JSONPreparationTool(FilePreparationTool):
     """
     Export json preparation tool for the first task
     """
     pass
 
 
-class FirstTaskXMLExportPreparationTool(FirstTaskExportPreparationTool):
+class XMLPreparationTool(FilePreparationTool):
     """
     Export xml preparation tool for the first task
     """
@@ -131,7 +134,7 @@ class FirstTaskXMLExportPreparationTool(FirstTaskExportPreparationTool):
         return root
 
 
-class FirstTaskJSONExportTool(ExportTool):
+class JSONExportTool(ExportTool):
     """
     Exports data to json file
     """
@@ -141,7 +144,7 @@ class FirstTaskJSONExportTool(ExportTool):
             json.dump(prepared_data, file)
 
 
-class FirstTaskXMLExportTool(ExportTool):
+class XMLExportTool(ExportTool):
     """
     Exports data to xml file
     """
@@ -182,8 +185,8 @@ class FirstTask:
     First task execution
     """
     AVAILABLE_EXTENSIONS_AND_EXPORT_TOOLS = {
-        'json': (FirstTaskJSONExportTool, FirstTaskJSONExportPreparationTool),
-        'xml': (FirstTaskXMLExportTool, FirstTaskXMLExportPreparationTool)
+        'json': (JSONExportTool, JSONPreparationTool),
+        'xml': (XMLExportTool, XMLPreparationTool)
     }
     OUTPUT_FILE_NAME = 'rooms_and_students'
 
@@ -193,7 +196,7 @@ class FirstTask:
         Start task execution
         """
         args = CLI.get_args()
-        import_tool = FirstTaskImportTool(args.students, args.rooms)
+        import_tool = StudentsRoomsImportTool(args.students, args.rooms)
         export_tool_class, export_preparation_tool_class = cls.AVAILABLE_EXTENSIONS_AND_EXPORT_TOOLS[args.format]
         export_tool = export_tool_class(cls.OUTPUT_FILE_NAME, export_preparation_tool_class(import_tool))
         try:
