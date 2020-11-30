@@ -10,9 +10,9 @@ from typing import Any, List
 
 class ImportTool:
     """
-    Interface for tools that import data and collects it too 'imported_data' dict
+    Interface for tools that import data and collects it to 'imported_data' dict
     """
-    def __init__(self, *args, **kwargs):
+    def __init__(self):
         self.imported_data = {}
 
     def import_data(self) -> Any:
@@ -65,8 +65,8 @@ class StudentsRoomsImportTool(ImportTool):
     """
     Import tool for the first task
     """
-    def __init__(self, students_path: str, rooms_path: str, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, students_path: str, rooms_path: str):
+        super().__init__()
         self.students_path = students_path
         self.rooms_path = rooms_path
 
@@ -89,11 +89,11 @@ class FilePreparationTool(ExportPreparationTool):
         """
         self.import_tool.import_data()
         output_data = {}
-        for room in self.import_tool['rooms']:
+        for room in self.import_tool.imported_data['rooms']:
             output_data[room['id']] = room.copy()
             output_data[room['id']]['students'] = []
 
-        for student in self.import_tool['students']:
+        for student in self.import_tool.imported_data['students']:
             output_data[student['room']]['students'].append(student.copy())
 
         return list(output_data.values())
@@ -202,7 +202,7 @@ class FirstTask:
         try:
             export_tool.export_data()
         except (FileNotFoundError, PermissionError):
-            print('Could not execute the task! Try to change input parameters.')
+            print('Could not write to file! Try to change input parameters.')
 
 
 if __name__ == '__main__':
