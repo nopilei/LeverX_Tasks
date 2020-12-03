@@ -7,7 +7,7 @@ class SharedResource:
         self.value = value
 
 
-def function(arg: int, lock: Lock, resource: SharedResource):
+def resource_state_change(arg: int, lock: Lock, resource: SharedResource):
     with lock:
         resource.value += arg
 
@@ -17,7 +17,7 @@ def main():
     shared_resource = SharedResource()
     with ThreadPoolExecutor(max_workers=5) as executor:
         for _ in range(5):
-            executor.submit(function, 1000000, lock, shared_resource)
+            executor.submit(resource_state_change, 1000000, lock, shared_resource)
     print("----------------------", shared_resource.value)
 
 
